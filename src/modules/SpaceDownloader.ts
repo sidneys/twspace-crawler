@@ -1,5 +1,4 @@
 import axios from 'axios'
-import { spawn, SpawnOptions } from 'child_process'
 import { writeFileSync } from 'fs'
 import path from 'path'
 import winston from 'winston'
@@ -7,6 +6,7 @@ import { PeriscopeApi } from '../apis/PeriscopeApi'
 import { logger as baseLogger } from '../logger'
 import { PeriscopeUtil } from '../utils/PeriscopeUtil'
 import { Util } from '../utils/Util'
+import { subprocessManager } from './SubprocessManager'
 
 export class SpaceDownloader {
   private logger: winston.Logger
@@ -88,19 +88,6 @@ export class SpaceDownloader {
     this.logger.verbose(`Audio is saving to "${this.audioFile}"`)
     this.logger.verbose(`${cmd} ${args.join(' ')}`)
 
-    // https://github.com/nodejs/node/issues/21825
-    const spawnOptions: SpawnOptions = {
-      cwd: process.cwd(),
-      stdio: 'ignore',
-      detached: false,
-      windowsHide: true,
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const cp = process.platform === 'win32'
-      ? spawn(process.env.comspec, ['/c', cmd, ...args], spawnOptions)
-      : spawn(cmd, args, spawnOptions)
-    // cp.unref()
-
-    return cp
+    return subprocessManager.startSubprocess(cmd, args)
   }
 }
