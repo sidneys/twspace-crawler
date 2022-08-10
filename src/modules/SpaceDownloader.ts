@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { program } from 'commander'
 import { writeFileSync } from 'fs'
 import path from 'path'
 import winston from 'winston'
@@ -86,8 +87,10 @@ export class SpaceDownloader {
     }
     args.push(this.audioFile)
     this.logger.verbose(`Audio is saving to "${this.audioFile}"`)
-    this.logger.verbose(`${cmd} ${args.join(' ')}`)
 
-    return subprocessManager.startSubprocess(cmd, args)
+    const commandPostprocessing = program.getOptionValue('commandPostprocessing') as string
+    const completionCommand = commandPostprocessing ? `${commandPostprocessing} ${path.resolve(this.audioFile)}` : undefined
+
+    return subprocessManager.start(cmd, args, completionCommand)
   }
 }

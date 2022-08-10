@@ -1,55 +1,97 @@
 import winston from 'winston'
+import stringArgv from 'string-argv'
 import { ChildProcess, spawn, SpawnOptions } from 'child_process'
 import { logger as baseLogger } from '../logger'
 
+type SubprocessId = number
+
+interface SubprocessInfo {
+  childProcess: ChildProcess
+  completionCommand?: string
+}
+
 class SubprocessManager {
   private logger: winston.Logger
-  private activeSubprocesses: Record<number, ChildProcess> = {}
+  private subprocessStore: Record<SubprocessId, SubprocessInfo> = {}
 
   constructor() {
-    this.logger = baseLogger.child({ label: '[SubprocessMonitor]' })
+    this.logger = baseLogger.child({ label: '[SubprocessManager]' })
   }
 
-  private remove(processId: number) {
-    // Delete Record
-    const subprocesses = this.activeSubprocesses
-    if (!subprocesses[processId]) { return }
-    delete subprocesses[processId]
-    this.logger.debug(`remove subprocess (pid: ${processId})`)
+  /**
+   * Remove a subprocess from the store
+   * @param {SubprocessId} subprocessId - Process identifier of sub process record
+   * @private
+   */
+  private remove(subprocessId: SubprocessId) {
+    if (!this.subprocessStore[subprocessId]) {
+      return
+    }
+    delete this.subprocessStore[subprocessId]
+
+    this.logger.debug(`remove() (pid: ${subprocessId})`)
   }
 
-  private add(subprocess: ChildProcess) {
-    // Create Record
-    const subprocesses = this.activeSubprocesses
-    if (subprocesses[subprocess.pid]) { return }
-    subprocesses[subprocess.pid] = subprocess
-    this.logger.debug(`add subprocess (pid: ${subprocess.pid})`)
+  /**
+   * Add a subprocess to the store
+   * @param {SubprocessInfo} subprocessInfo - Sub process record
+   * @private
+   */
+  private add(subprocessInfo: SubprocessInfo) {
+    if (this.subprocessStore[subprocessInfo.childProcess.pid]) {
+      return
+    }
+    this.subprocessStore[subprocessInfo.childProcess.pid] = subprocessInfo
+
+    this.logger.debug(`add() (pid: ${subprocessInfo.childProcess.pid})`)
   }
 
-  private monitor(subprocess: ChildProcess) {
-    // Event: #spawn - Add to active subprocess list
-    subprocess.on('spawn', () => {
-      this.logger.debug(`subprocess #spawn (command: ${subprocess.spawnfile}) (pid: ${subprocess.pid})`)
-      // Add subprocess to active subprocess list
-      this.add(subprocess)
+  /**
+   * Monitor a child process during its life cycle
+   * @param {ChildProcess} childProcess - Child process to monitor
+   * @param {string?} completionCommand - Command to run after child process exits
+   */
+  public monitor(childProcess: ChildProcess, completionCommand?: string) {
+    /** @listens ChildProcess#error */
+    childProcess.on('error', (error) => {
+      this.logger.error(`#error (message: ${error.message}) (pid: ${childProcess.pid}) (spawnfile: ${childProcess.spawnfile})`)
+      this.logger.debug('#error', error)
     })
 
-    // Event: #exit - Remove from active subprocess list
-    subprocess.on('exit', (code, signal) => {
-      this.logger.debug(`subprocess #exit (code: ${code}) (signal: ${signal}) (command: ${subprocess.spawnfile}) (pid: ${subprocess.pid})`)
-      this.remove(subprocess.pid)
+    /** @listens ChildProcess#spawn */
+    childProcess.on('spawn', () => {
+      this.logger.debug(`#spawn (pid: ${childProcess.pid}) (spawnfile: ${childProcess.spawnfile})`)
+      // Add child processes to store
+      this.add({
+        childProcess,
+        completionCommand,
+      })
+    })
+
+    /** @listens ChildProcess#exit */
+    childProcess.on('exit', (code, signal?) => {
+      this.logger.debug(`#exit (pid: ${childProcess.pid}) (spawnfile: ${childProcess.spawnfile}) (code: ${code}) (signal: ${signal || 'N/A'})`)
+      // Execute completion command as new child process
+      const command = this.subprocessStore[childProcess.pid]?.completionCommand
+      if (command) {
+        const argv = stringArgv(command)
+        this.start(argv[0], argv.slice(1))
+      }
+      // Remove subprocess from store
+      this.remove(childProcess.pid)
     })
   }
 
-  public getSubprocesses(): ChildProcess[] {
-    return Object.values(this.activeSubprocesses)
-  }
+  /**
+   * Execute a command as a child process.
+   * Optionally, run a second command after the first command exits.
+   * @param {string} cmd - Command to run
+   * @param {string[]} args - List of string arguments
+   * @param {string?} completionCommand - Command string to execute upon completion of first command
+   */
+  public start(cmd: string, args: string[], completionCommand?: string): ChildProcess {
+    this.logger.verbose(`start() (command: ${cmd} ${args.join(' ')}) (completion command: ${completionCommand || 'N/A'})`)
 
-  public getSubprocessByPid(processId: number): ChildProcess | void {
-    return this.activeSubprocesses[processId]
-  }
-
-  public startSubprocess(cmd: string, args: Array<any>): ChildProcess {
     // https://github.com/nodejs/node/issues/21825
     const spawnOptions: SpawnOptions = {
       cwd: process.cwd(),
@@ -57,15 +99,15 @@ class SubprocessManager {
       detached: false,
       windowsHide: true,
     }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const subprocess = process.platform === 'win32'
+
+    const cp = process.platform === 'win32'
       ? spawn(process.env.comspec, ['/c', cmd, ...args], spawnOptions)
       : spawn(cmd, args, spawnOptions)
-    // subprocess.unref()
+    // cp.unref()
 
-    this.monitor(subprocess)
+    this.monitor(cp, completionCommand)
 
-    return subprocess
+    return cp
   }
 }
 
