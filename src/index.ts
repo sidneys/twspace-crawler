@@ -46,7 +46,7 @@ program
   .option('--url <PLAYLIST_ID>', 'Download Space using playlist url')
   .option('--notification', 'Show notification about new live Space')
   .option('--force-open', 'Force open Space in browser')
-  .option('-pp, --command-postprocessing <COMMAND_POSTPROCESSING>', 'Post-Processing Command (Executed on download completion, path to downloaded audio file is passed as argument)')
+  .option('-pp, --postprocessing <POSTPROCESSING>', 'Post-Processing Command executed after a download completes (Path to downloaded audio file is passed as argument)')
   .addCommand(ccCommand)
   .addCommand(testCommand)
 

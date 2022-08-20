@@ -88,8 +88,8 @@ export class SpaceDownloader {
     args.push(this.audioFile)
     this.logger.verbose(`Audio is saving to "${this.audioFile}"`)
 
-    const commandPostprocessing = program.getOptionValue('commandPostprocessing') as string
-    const completionCommand = commandPostprocessing ? `${commandPostprocessing} ${path.resolve(this.audioFile)}` : undefined
+    const postprocessing = program.getOptionValue('postprocessing') as string
+    const completionCommand = postprocessing ? `${postprocessing} ${path.resolve(this.audioFile)}` : undefined
 
     return subprocessManager.start(cmd, args, completionCommand)
   }
