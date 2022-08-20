@@ -28,6 +28,7 @@
     "build": "tsc",
     "prepare": "npm run build",
     "test": "lab --transform node_modules/lab-transform-typescript",
+    "test-ignoreleaks": "lab --transform node_modules/lab-transform-typescript --leaks",
     "lint": "eslint src --ext .ts",
     "lint-fix": "eslint src --ext .ts --fix"
   },
