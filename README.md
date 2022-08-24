@@ -13,6 +13,7 @@
 1. [Options](#options)
 1. [Commands](#commands)
 1. [Webhooks](#webhooks)
+1. [Post-Processing](#post-processing)
 1. [Changelog](CHANGELOG.md)
 
 ## Requirements
@@ -103,6 +104,7 @@ twspace-crawler --id 1yoJMWvbybNKQ --url https://prod-fastly-ap-northeast-1.vide
 ```
   --notification                    Show notification about new live Space
   --force-open                      Force open Space in browser
+  --postprocessing <POSTPROCESSING> Post-Processing command executed after download ended (Path to downloaded audio file passed as argument)
 ```
 
 ## Commands
@@ -140,3 +142,37 @@ twspace-crawler cc e /download/sample_cc.jsonl 1633612289669
 Currently support Discord Webooks
 
 Check [config.example.yaml](config.example.yaml) or [config.example.json](config.example.json) for more detail
+
+## Post-Processing
+
+The `--postprocessing` option can be used to execute a local command after the download process of a Space has ended. Supplied commands will be executed regardless of whether the download process was successful.
+
+The absolute path of the downloaded audio file is appended to the supplied command.
+
+### Example
+
+Calling ´twspace-crawler` with `--postprocessing "echo"` results in the `echo` command being called, with the path to the downloaded audio file appended as its first argument:
+
+```
+twspace-crawler --force --space-url 'https://twitter.com/i/spaces/1RDxlgzbzWEJL' --postprocessing "echo"
+```
+
+Result:
+
+```
+echo /Users/Guest/Downloads/[username][2208090228] My Twitter Space ().m4a
+```
+
+### Example
+
+Executing a shell script named `processing.sh` by supplying its absolute path: 
+
+```
+twspace-crawler --force --space-url 'https://twitter.com/i/spaces/1RDxlgzbzWEJL' --postprocessing "/usr/local/share/processing.sh"
+```
+
+Result:
+
+```
+/usr/local/share/processing.sh /Users/Guest/Downloads/[username][2208090228] My Twitter Space ().m4a
+```
